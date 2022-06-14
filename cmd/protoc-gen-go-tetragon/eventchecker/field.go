@@ -5,6 +5,7 @@ package eventchecker
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/cilium/tetragon/cmd/protoc-gen-go-tetragon/common"
@@ -166,8 +167,19 @@ func doGetFieldFrom(field *Field, g *protogen.GeneratedFile, handleList, handleO
 	}
 
 	doCheckerFrom := func() string {
+		ownPrefix := filepath.Join(common.TetragonPackageName, common.TetragonApiPackageName)
+		typeImportPath := string(field.Message.GoIdent.GoImportPath)
+		newCall := fmt.Sprintf("New%sChecker()", field.Message.GoIdent.GoName)
+		if !strings.HasPrefix(typeImportPath, ownPrefix) {
+			importPath := filepath.Join(typeImportPath, "codegen", "eventchecker")
+			newCall = g.QualifiedGoIdent(protogen.GoIdent{
+				GoName:       newCall,
+				GoImportPath: protogen.GoImportPath(importPath),
+			})
+		}
+
 		return `if ` + eventVar + ` != nil {
-        ` + checkerVar + `= New` + field.Message.GoIdent.GoName + `Checker().From` +
+        ` + checkerVar + `= ` + newCall + `.From` +
 			field.Message.GoIdent.GoName + `(` + eventVar + `)
         }`
 	}
@@ -702,7 +714,16 @@ func (field *Field) typeName(g *protogen.GeneratedFile) (string, error) {
 			dmatcher := common.GeneratedIdent(g, "eventchecker/matchers/durationmatcher", "DurationMatcher")
 			type_ = dmatcher
 		} else {
+			ownPrefix := filepath.Join(common.TetragonPackageName, common.TetragonApiPackageName)
+			typeImportPath := string(field.Message.GoIdent.GoImportPath)
 			type_ = fmt.Sprintf("%sChecker", field.Message.GoIdent.GoName)
+			if !strings.HasPrefix(typeImportPath, ownPrefix) {
+				importPath := filepath.Join(typeImportPath, "codegen", "eventchecker")
+				type_ = g.QualifiedGoIdent(protogen.GoIdent{
+					GoName:       type_,
+					GoImportPath: protogen.GoImportPath(importPath),
+				})
+			}
 		}
 
 	case protoreflect.EnumKind:
