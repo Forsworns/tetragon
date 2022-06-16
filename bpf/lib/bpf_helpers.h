@@ -35,6 +35,9 @@
 #define XSTR(s) STR(s)
 #define STR(s)	#s
 
+#ifdef VSCODE
+const void * __builtin_preserve_access_index(void *);
+#endif
 #define _(P) (__builtin_preserve_access_index(P))
 
 /*
