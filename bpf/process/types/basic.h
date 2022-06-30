@@ -404,10 +404,10 @@ static inline __attribute__((always_inline)) long copy_skb(char *args,
 	struct skb_type *skb_event = (struct skb_type *)args;
 
 	/* struct values */
-	probe_read(&skb_event->hash, sizeof(__u32), _(&skb->hash));
-	probe_read(&skb_event->len, sizeof(__u32), _(&skb->len));
-	probe_read(&skb_event->priority, sizeof(__u32), _(&skb->priority));
-	probe_read(&skb_event->mark, sizeof(__u32), _(&skb->mark));
+	bpf_core_read(&skb_event->hash, sizeof(__u32), &skb->hash);
+	bpf_core_read(&skb_event->len, sizeof(__u32), &skb->len);
+	bpf_core_read(&skb_event->priority, sizeof(__u32), &skb->priority);
+	bpf_core_read(&skb_event->mark, sizeof(__u32), &skb->mark);
 
 	/* socket data */
 	set_event_from_skb(skb_event, skb);
@@ -432,10 +432,10 @@ static inline __attribute__((always_inline)) long copy_cred(char *args,
 	struct cred *cred = (struct cred *)arg;
 	struct msg_capabilities *caps = (struct msg_capabilities *)args;
 
-	probe_read(&caps->effective, sizeof(__u64), _(&cred->cap_effective));
-	probe_read(&caps->inheritable, sizeof(__u64),
-		   _(&cred->cap_inheritable));
-	probe_read(&caps->permitted, sizeof(__u64), _(&cred->cap_permitted));
+	bpf_core_read(&caps->effective, sizeof(__u64), &cred->cap_effective);
+	bpf_core_read(&caps->inheritable, sizeof(__u64),
+		      &cred->cap_inheritable);
+	bpf_core_read(&caps->permitted, sizeof(__u64), &cred->cap_permitted);
 
 	return sizeof(struct msg_capabilities);
 }

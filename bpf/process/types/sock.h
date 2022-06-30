@@ -28,19 +28,19 @@ set_event_from_sock(struct sk_type *event, struct sock *sk)
 
 	event->family = 0;
 
-	probe_read(&event->family, sizeof(event->family),
-		   _(&common->skc_family));
-	probe_read(&event->type, sizeof(event->type), _(&sk->sk_type));
-	probe_read(&event->protocol, sizeof(event->protocol),
-		   _(&sk->sk_protocol));
-	probe_read(&event->mark, sizeof(event->mark), _(&sk->sk_mark));
-	probe_read(&event->priority, sizeof(event->priority),
-		   _(&sk->sk_priority));
+	bpf_core_read(&event->family, sizeof(event->family),
+		      &common->skc_family);
+	bpf_core_read(&event->type, sizeof(event->type), &sk->sk_type);
+	bpf_core_read(&event->protocol, sizeof(event->protocol),
+		      &sk->sk_protocol);
+	bpf_core_read(&event->mark, sizeof(event->mark), &sk->sk_mark);
+	bpf_core_read(&event->priority, sizeof(event->priority),
+		      &sk->sk_priority);
 
-	probe_read(&event->saddr, sizeof(event->daddr), _(&common->skc_daddr));
-	probe_read(&event->daddr, sizeof(event->saddr),
-		   _(&common->skc_rcv_saddr));
-	probe_read(&event->sport, sizeof(event->sport), _(&common->skc_num));
-	probe_read(&event->dport, sizeof(event->dport), _(&common->skc_dport));
+	bpf_core_read(&event->saddr, sizeof(event->daddr), &common->skc_daddr);
+	bpf_core_read(&event->daddr, sizeof(event->saddr),
+		      &common->skc_rcv_saddr);
+	bpf_core_read(&event->sport, sizeof(event->sport), &common->skc_num);
+	bpf_core_read(&event->dport, sizeof(event->dport), &common->skc_dport);
 }
 #endif // __SOCK_H__

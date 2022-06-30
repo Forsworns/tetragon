@@ -42,7 +42,7 @@ get_parent(struct task_struct *t)
 {
 	struct task_struct *task;
 
-	probe_read(&task, sizeof(task), _(&t->parent));
+	bpf_core_read(&task, sizeof(task), &t->parent);
 	if (!task)
 		return 0;
 	return task;
@@ -62,7 +62,7 @@ get_task_from_pid(__u32 pid)
 			i = TASK_PID_LOOP;
 			continue;
 		}
-		probe_read(&cpid, sizeof(cpid), _(&task->tgid));
+		bpf_core_read(&cpid, sizeof(cpid), &task->tgid);
 		if (cpid == pid) {
 			i = TASK_PID_LOOP;
 			continue;
@@ -98,7 +98,7 @@ event_find_parent_pid(struct task_struct *t)
 
 	if (!task)
 		return 0;
-	probe_read(&pid, sizeof(pid), _(&task->tgid));
+	bpf_core_read(&pid, sizeof(pid), &task->tgid);
 	return pid;
 }
 
@@ -111,10 +111,10 @@ __event_find_parent(struct task_struct *task)
 
 #pragma unroll
 	for (i = 0; i < 4; i++) {
-		probe_read(&task, sizeof(task), _(&task->parent));
+		bpf_core_read(&task, sizeof(task), &task->parent);
 		if (!task)
 			break;
-		probe_read(&pid, sizeof(pid), _(&task->tgid));
+		bpf_core_read(&pid, sizeof(pid), &task->tgid);
 		value = execve_map_get(pid);
 		if (value && value->key.ktime != 0)
 			return value;
@@ -161,10 +161,10 @@ event_find_curr(__u32 *ppid, struct bpf_map_def *map, bool *walked)
 			break;
 		value = 0;
 		*walked = 1;
-		probe_read(&task, sizeof(task), _(&task->parent));
+		bpf_core_read(&task, sizeof(task), &task->parent);
 		if (!task)
 			break;
-		probe_read(&pid, sizeof(pid), _(&task->tgid));
+		bpf_core_read(&pid, sizeof(pid), &task->tgid);
 	}
 	*ppid = pid;
 

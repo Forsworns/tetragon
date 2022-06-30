@@ -3,6 +3,29 @@
 #define __BPF_CORE_READ_H__
 
 /*
+ * bpf_probe_read_kernel
+ *
+ * Safely attempt to read *size* bytes from kernel space address
+ * *unsafe_ptr* and store the data in *dst*.
+ *
+ * Returns
+ * 0 on success, or a negative error in case of failure.
+ */
+static long (*bpf_probe_read_kernel)(void *dst, __u32 size, const void *unsafe_ptr) = (void *) 113;
+
+/*
+ * bpf_probe_read_kernel_str
+ *
+ * Copy a NUL terminated string from an unsafe kernel address *unsafe_ptr*
+ * to *dst*. Same semantics as with **bpf_probe_read_user_str**\ () apply.
+ *
+ * Returns
+ * On success, the strictly positive length of the string, including
+ * the trailing NUL character. On error, a negative value.
+ */
+static long (*bpf_probe_read_kernel_str)(void *dst, __u32 size, const void *unsafe_ptr) = (void *) 115;
+
+/*
  * enum bpf_field_info_kind is passed as a second argument into
  * __builtin_preserve_field_info() built-in to get a specific aspect of
  * a field, captured as a first argument. __builtin_preserve_field_info(field,
@@ -24,7 +47,7 @@ enum bpf_field_info_kind {
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define __CORE_BITFIELD_PROBE_READ(dst, src, fld)			      \
-	bpf_probe_read((void *)dst,					      \
+	bpf_probe_read_kernel((void *)dst,					      \
 		       __CORE_RELO(src, fld, BYTE_SIZE),		      \
 		       (const void *)src + __CORE_RELO(src, fld, BYTE_OFFSET))
 #else
@@ -33,7 +56,7 @@ enum bpf_field_info_kind {
  * field byte size
  */
 #define __CORE_BITFIELD_PROBE_READ(dst, src, fld)			      \
-	bpf_probe_read((void *)dst + (8 - __CORE_RELO(src, fld, BYTE_SIZE)),  \
+	bpf_probe_read_kernel((void *)dst + (8 - __CORE_RELO(src, fld, BYTE_SIZE)),  \
 		       __CORE_RELO(src, fld, BYTE_SIZE),		      \
 		       (const void *)src + __CORE_RELO(src, fld, BYTE_OFFSET))
 #endif
@@ -42,9 +65,9 @@ enum bpf_field_info_kind {
  * Extract bitfield, identified by s->field, and return its value as u64.
  * All this is done in relocatable manner, so bitfield changes such as
  * signedness, bit size, offset changes, this will be handled automatically.
- * This version of macro is using bpf_probe_read() to read underlying integer
+ * This version of macro is using bpf_probe_read_kernel() to read underlying integer
  * storage. Macro functions as an expression and its return type is
- * bpf_probe_read()'s return value: 0, on success, <0 on error.
+ * bpf_probe_read_kernel()'s return value: 0, on success, <0 on error.
  */
 #define BPF_CORE_READ_BITFIELD_PROBED(s, field) ({			      \
 	unsigned long long val = 0;					      \
@@ -115,7 +138,7 @@ enum bpf_field_info_kind {
  * (local) BTF, used to record relocation.
  */
 #define bpf_core_read(dst, sz, src)					    \
-	bpf_probe_read(dst, sz,						    \
+	bpf_probe_read_kernel(dst, sz,						    \
 		       (const void *)__builtin_preserve_access_index(src))
 
 /*
@@ -124,7 +147,7 @@ enum bpf_field_info_kind {
  * argument.
  */
 #define bpf_core_read_str(dst, sz, src)					    \
-	bpf_probe_read_str(dst, sz,					    \
+	bpf_probe_read_kernel_str(dst, sz,					    \
 			   (const void *)__builtin_preserve_access_index(src))
 
 #define ___concat(a, b) a ## b
@@ -215,8 +238,7 @@ enum bpf_field_info_kind {
  * BPF_CORE_READ(), in which final field is read into user-provided storage.
  * See BPF_CORE_READ() below for more details on general usage.
  */
-#define BPF_CORE_READ_INTO(dst, src, a, ...)				    \
-	({								    \
+#define BPF_CORE_READ_INTO(dst, src, a, ...) ({						\
 		___core_read(bpf_core_read, dst, src, a, ##__VA_ARGS__)	    \
 	})
 

@@ -25,15 +25,15 @@ __get_auid(struct task_struct *task)
 		return auid;
 
 	if (bpf_core_field_exists(task->loginuid)) {
-		probe_read(&auid, sizeof(auid), _(&task->loginuid.val));
+		bpf_core_read(&auid, sizeof(auid), &task->loginuid.val);
 	} else {
 		struct audit_task_info *audit;
 
 		if (bpf_core_field_exists(task->audit)) {
-			probe_read(&audit, sizeof(audit), _(&task->audit));
+			bpf_core_read(&audit, sizeof(audit), &task->audit);
 			if (audit) {
-				probe_read(&auid, sizeof(__u32),
-					   _(&audit->loginuid));
+				bpf_core_read(&auid, sizeof(__u32),
+					      &audit->loginuid);
 			}
 		}
 	}
@@ -74,7 +74,7 @@ static inline __attribute__((always_inline)) bool IS_ROOT(struct dentry *dentry)
 {
 	struct dentry *d_parent;
 
-	probe_read(&d_parent, sizeof(d_parent), _(&dentry->d_parent));
+	bpf_core_read(&d_parent, sizeof(d_parent), &dentry->d_parent);
 	return (dentry == d_parent);
 }
 
@@ -83,7 +83,7 @@ hlist_bl_unhashed(const struct hlist_bl_node *h)
 {
 	struct hlist_bl_node **pprev;
 
-	probe_read(&pprev, sizeof(pprev), _(&h->pprev));
+	bpf_core_read(&pprev, sizeof(pprev), &h->pprev);
 	return !pprev;
 }
 
@@ -168,8 +168,8 @@ prepend_path(const struct path *path, const struct path *root, char *bf,
 
 	bptr = *buffer;
 	blen = *buflen;
-	probe_read(&dentry, sizeof(dentry), _(&path->dentry));
-	probe_read(&vfsmnt, sizeof(vfsmnt), _(&path->mnt));
+	bpf_core_read(&dentry, sizeof(dentry), &path->dentry);
+	bpf_core_read(&vfsmnt, sizeof(vfsmnt), &path->mnt);
 	mnt = real_mount(vfsmnt);
 
 #ifndef __LARGE_BPF_PROG
@@ -182,29 +182,29 @@ prepend_path(const struct path *path, const struct path *root, char *bf,
 		struct vfsmount *root_mnt;
 		struct dentry *root_dentry;
 
-		probe_read(&root_dentry, sizeof(root_dentry), _(&root->dentry));
-		probe_read(&root_mnt, sizeof(root_mnt), _(&root->mnt));
+		bpf_core_read(&root_dentry, sizeof(root_dentry), &root->dentry);
+		bpf_core_read(&root_mnt, sizeof(root_mnt), &root->mnt);
 		if (!(dentry != root_dentry || vfsmnt != root_mnt)) {
 			resolved =
 				true; // resolved all path components successfully
 			break;
 		}
 
-		probe_read(&vfsmnt_mnt_root, sizeof(vfsmnt_mnt_root),
-			   _(&vfsmnt->mnt_root));
+		bpf_core_read(&vfsmnt_mnt_root, sizeof(vfsmnt_mnt_root),
+			      &vfsmnt->mnt_root);
 		if (dentry == vfsmnt_mnt_root || IS_ROOT(dentry)) {
 			struct mount *parent;
 
-			probe_read(&parent, sizeof(parent),
-				   _(&mnt->mnt_parent));
+			bpf_core_read(&parent, sizeof(parent),
+				      &mnt->mnt_parent);
 
 			/* Global root? */
 			if (mnt != parent) {
-				probe_read(&dentry, sizeof(dentry),
-					   _(&mnt->mnt_mountpoint));
+				bpf_core_read(&dentry, sizeof(dentry),
+					      &mnt->mnt_mountpoint);
 				mnt = parent;
-				probe_read(&vfsmnt, sizeof(vfsmnt),
-					   _(&mnt->mnt));
+				bpf_core_read(&vfsmnt, sizeof(vfsmnt),
+					      &mnt->mnt);
 				continue;
 			}
 
@@ -212,8 +212,8 @@ prepend_path(const struct path *path, const struct path *root, char *bf,
 				true; // resolved all path components successfully
 			break;
 		}
-		probe_read(&parent, sizeof(parent), _(&dentry->d_parent));
-		probe_read(&d_name, sizeof(d_name), _(&dentry->d_name));
+		bpf_core_read(&parent, sizeof(parent), &dentry->d_parent);
+		bpf_core_read(&d_name, sizeof(d_name), &dentry->d_name);
 		error = prepend_name(bf, &bptr, &blen,
 				     (const char *)d_name.name, d_name.len);
 		// This will happen where the dentry name does not fit in the buffer.
@@ -241,7 +241,7 @@ path_with_deleted(const struct path *path, const struct path *root, char *bf,
 {
 	struct dentry *dentry;
 
-	probe_read(&dentry, sizeof(dentry), _(&path->dentry));
+	bpf_core_read(&dentry, sizeof(dentry), &path->dentry);
 	if (d_unlinked(dentry)) {
 		int error = prepend(buf, buflen, " (deleted)", 10);
 		if (error) // will never happen as prepend will never return a value != 0
@@ -293,7 +293,7 @@ __d_path_local(const struct path *path, char *buf, int *buflen, int *error)
 	struct fs_struct *fs;
 
 	task = (struct task_struct *)get_current_task();
-	probe_read(&fs, sizeof(fs), _(&task->fs));
+	bpf_core_read(&fs, sizeof(fs), &task->fs);
 	*error = path_with_deleted(path, _(&fs->root), buf, &res, buflen);
 	return res;
 }
@@ -308,7 +308,7 @@ getcwd(struct msg_process *curr, __u32 offset, __u32 proc_pid, bool prealloc)
 	char *buffer;
 	int zero = 0, size = 0;
 
-	probe_read(&fs, sizeof(fs), _(&task->fs));
+	bpf_core_read(&fs, sizeof(fs), &task->fs);
 	if (!fs) {
 		curr->flags |= EVENT_ERROR_CWD;
 		return 0;
@@ -358,7 +358,7 @@ static inline __attribute__((always_inline)) __u32 get_task_pid_vnr(void)
 
 	thread_pid_exists = bpf_core_field_exists(task->thread_pid);
 	if (thread_pid_exists) {
-		probe_read(&pid, sizeof(pid), _(&task->thread_pid));
+		bpf_core_read(&pid, sizeof(pid), &task->thread_pid);
 		if (!pid) {
 			return 0;
 		}
@@ -374,16 +374,16 @@ static inline __attribute__((always_inline)) __u32 get_task_pid_vnr(void)
 		if (!thread_pid_exists)
 			link_sz =
 				24; // voodoo magic, hard-code 24 to init stack
-		probe_read(&link, link_sz,
-			   (void *)_(&task->pids) + (PIDTYPE_PID * link_sz));
+		bpf_core_read(&link, link_sz,
+			      (void *)&task->pids + (PIDTYPE_PID * link_sz));
 		pid = link.pid;
 	}
 	upid_sz = bpf_core_field_size(pid->numbers[0]);
-	probe_read(&level, sizeof(level), _(&pid->level));
+	bpf_core_read(&level, sizeof(level), &pid->level);
 	if (level < 1)
 		return 0;
-	probe_read(&upid, upid_sz,
-		   (void *)_(&pid->numbers) + (level * upid_sz));
+	bpf_core_read(&upid, upid_sz,
+		      (void *)&pid->numbers + (level * upid_sz));
 	return upid.nr;
 }
 
@@ -467,10 +467,10 @@ get_caps(struct msg_capabilities *msg, struct task_struct *task)
 {
 	const struct cred *cred;
 
-	probe_read(&cred, sizeof(cred), _(&task->real_cred));
-	probe_read(&msg->effective, sizeof(__u64), _(&cred->cap_effective));
-	probe_read(&msg->inheritable, sizeof(__u64), _(&cred->cap_inheritable));
-	probe_read(&msg->permitted, sizeof(__u64), _(&cred->cap_permitted));
+	bpf_core_read(&cred, sizeof(cred), &task->real_cred);
+	bpf_core_read(&msg->effective, sizeof(__u64), &cred->cap_effective);
+	bpf_core_read(&msg->inheritable, sizeof(__u64), &cred->cap_inheritable);
+	bpf_core_read(&msg->permitted, sizeof(__u64), &cred->cap_permitted);
 }
 
 static inline __attribute__((always_inline)) void
@@ -479,55 +479,55 @@ get_namespaces(struct msg_ns *msg, struct task_struct *task)
 	struct nsproxy *nsproxy;
 	struct nsproxy nsp;
 
-	probe_read(&nsproxy, sizeof(nsproxy), _(&task->nsproxy));
-	probe_read(&nsp, sizeof(nsp), _(nsproxy));
+	bpf_core_read(&nsproxy, sizeof(nsproxy), &task->nsproxy);
+	bpf_core_read(&nsp, sizeof(nsp), nsproxy);
 
-	probe_read(&msg->uts_inum, sizeof(msg->uts_inum),
-		   _(&nsp.uts_ns->ns.inum));
-	probe_read(&msg->ipc_inum, sizeof(msg->ipc_inum),
-		   _(&nsp.ipc_ns->ns.inum));
-	probe_read(&msg->mnt_inum, sizeof(msg->mnt_inum),
-		   _(&nsp.mnt_ns->ns.inum));
+	bpf_core_read(&msg->uts_inum, sizeof(msg->uts_inum),
+		      &nsp.uts_ns->ns.inum);
+	bpf_core_read(&msg->ipc_inum, sizeof(msg->ipc_inum),
+		      &nsp.ipc_ns->ns.inum);
+	bpf_core_read(&msg->mnt_inum, sizeof(msg->mnt_inum),
+		      &nsp.mnt_ns->ns.inum);
 	{
 		struct pid *p = 0;
 
-		probe_read(&p, sizeof(p), _(&task->thread_pid));
+		bpf_core_read(&p, sizeof(p), &task->thread_pid);
 		if (p) {
 			int level = 0;
 			struct upid up;
 
-			probe_read(&level, sizeof(level), _(&p->level));
-			probe_read(&up, sizeof(up), _(&p->numbers[level]));
-			probe_read(&msg->pid_inum, sizeof(msg->pid_inum),
-				   _(&up.ns->ns.inum));
+			bpf_core_read(&level, sizeof(level), &p->level);
+			bpf_core_read(&up, sizeof(up), &p->numbers[level]);
+			bpf_core_read(&msg->pid_inum, sizeof(msg->pid_inum),
+				      &up.ns->ns.inum);
 		} else
 			msg->pid_inum = 0;
 	}
-	probe_read(&msg->pid_for_children_inum,
-		   sizeof(msg->pid_for_children_inum),
-		   _(&nsp.pid_ns_for_children->ns.inum));
-	probe_read(&msg->net_inum, sizeof(msg->net_inum),
-		   _(&nsp.net_ns->ns.inum));
+	bpf_core_read(&msg->pid_for_children_inum,
+		      sizeof(msg->pid_for_children_inum),
+		      &nsp.pid_ns_for_children->ns.inum);
+	bpf_core_read(&msg->net_inum, sizeof(msg->net_inum),
+		      &nsp.net_ns->ns.inum);
 
 	// this also includes time_ns_for_children
 	if (bpf_core_field_exists(nsproxy->time_ns)) {
-		probe_read(&msg->time_inum, sizeof(msg->time_inum),
-			   _(&nsp.time_ns->ns.inum));
-		probe_read(&msg->time_for_children_inum,
-			   sizeof(msg->time_for_children_inum),
-			   _(&nsp.time_ns_for_children->ns.inum));
+		bpf_core_read(&msg->time_inum, sizeof(msg->time_inum),
+			      &nsp.time_ns->ns.inum);
+		bpf_core_read(&msg->time_for_children_inum,
+			      sizeof(msg->time_for_children_inum),
+			      &nsp.time_ns_for_children->ns.inum);
 	}
 
-	probe_read(&msg->cgroup_inum, sizeof(msg->cgroup_inum),
-		   _(&nsp.cgroup_ns->ns.inum));
+	bpf_core_read(&msg->cgroup_inum, sizeof(msg->cgroup_inum),
+		      &nsp.cgroup_ns->ns.inum);
 	{
 		struct mm_struct *mm;
 		struct user_namespace *user_ns;
 
-		probe_read(&mm, sizeof(mm), _(&task->mm));
-		probe_read(&user_ns, sizeof(user_ns), _(&mm->user_ns));
-		probe_read(&msg->user_inum, sizeof(msg->user_inum),
-			   _(&user_ns->ns.inum));
+		bpf_core_read(&mm, sizeof(mm), &task->mm);
+		bpf_core_read(&user_ns, sizeof(user_ns), &mm->user_ns);
+		bpf_core_read(&msg->user_inum, sizeof(msg->user_inum),
+			      &user_ns->ns.inum);
 	}
 }
 
@@ -548,11 +548,8 @@ __event_get_task_info(struct msg_execve_event *msg, __u8 op, bool walker,
 	struct cgroup_subsys_state *subsys;
 	struct msg_process *curr;
 	struct task_struct *task;
-	struct nsproxy *nsproxy;
 	struct css_set *cgroups;
-	struct kernfs_node *kn;
 	struct cgroup *cgrp;
-	struct net *net_ns;
 	const char *name;
 
 	msg->common.op = op;
@@ -597,33 +594,21 @@ __event_get_task_info(struct msg_execve_event *msg, __u8 op, bool walker,
 		curr->flags |= EVENT_TASK_WALK;
 
 	task = (struct task_struct *)get_current_task();
-	probe_read(&nsproxy, sizeof(nsproxy), _(&task->nsproxy));
-	if (nsproxy) {
-		probe_read(&net_ns, sizeof(net_ns), _(&nsproxy->net_ns));
-		if (net_ns)
-			probe_read(&msg->kube.net_ns, sizeof(msg->kube.net_ns),
-				   _(&net_ns->ns.inum));
-	}
+	BPF_CORE_READ_INTO(&msg->kube.net_ns, task, nsproxy, net_ns, ns.inum);
 
 	task = (struct task_struct *)get_current_task();
-	probe_read(&cgroups, sizeof(cgroups), _(&task->cgroups));
+	bpf_core_read(&cgroups, sizeof(cgroups), &task->cgroups);
 	if (cgroups) {
-		probe_read(&subsys, sizeof(subsys), _(&cgroups->subsys[0]));
+		bpf_core_read(&subsys, sizeof(subsys), &cgroups->subsys[0]);
 		if (subsys) {
-			probe_read(&cgrp, sizeof(cgrp), _(&subsys->cgroup));
+			bpf_core_read(&cgrp, sizeof(cgrp), &subsys->cgroup);
 			if (cgrp) {
-				probe_read(&kn, sizeof(cgrp->kn), _(&cgrp->kn));
-				if (kn) {
-					probe_read(&name, sizeof(name),
-						   _(&kn->name));
-					if (name) {
-						probe_read_str(
-							msg->kube.docker_id,
-							DOCKER_ID_LENGTH, name);
-					} else {
-						curr->flags |=
-							EVENT_DOCKER_NAME_ERR;
-					}
+				if (BPF_CORE_READ_INTO(&name, cgrp, kn, name) ==
+				    0) {
+					probe_read_str(msg->kube.docker_id,
+						       DOCKER_ID_LENGTH, name);
+				} else {
+					curr->flags |= EVENT_DOCKER_NAME_ERR;
 				}
 				// else case we do not include error flag because it
 				// indicates there is not a docker id. This is normal

@@ -44,16 +44,16 @@ event_args_builder(void *ctx, struct msg_execve_event *event)
 
 	/* We use flags in asm to indicate overflow */
 	compiler_barrier();
-	probe_read(&mm, sizeof(mm), _(&task->mm));
+	bpf_core_read(&mm, sizeof(mm), &task->mm);
 	if (mm) {
 		unsigned long start_stack, end_stack;
 		struct execve_heap *heap;
 		__u32 zero = 0;
 		long off;
 
-		probe_read(&start_stack, sizeof(start_stack),
-			   _(&mm->arg_start));
-		probe_read(&end_stack, sizeof(start_stack), _(&mm->arg_end));
+		bpf_core_read(&start_stack, sizeof(start_stack),
+			      &mm->arg_start);
+		bpf_core_read(&end_stack, sizeof(start_stack), &mm->arg_end);
 
 		if (!start_stack || !end_stack)
 			return;

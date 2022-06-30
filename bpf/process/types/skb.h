@@ -29,38 +29,38 @@ set_event_from_skb(struct skb_type *event, struct sk_buff *skb)
 	unsigned char *skb_head = 0;
 	u16 l3_off;
 
-	probe_read(&skb_head, sizeof(skb_head), _(&skb->head));
-	probe_read(&l3_off, sizeof(l3_off), _(&skb->network_header));
+	bpf_core_read(&skb_head, sizeof(skb_head), &skb->head);
+	bpf_core_read(&l3_off, sizeof(l3_off), &skb->network_header);
 
 	struct iphdr *ip = (struct iphdr *)(skb_head + l3_off);
 	u8 iphdr_byte0;
-	probe_read(&iphdr_byte0, 1, _(ip));
+	bpf_core_read(&iphdr_byte0, 1, ip);
 
 	u8 ip_ver = iphdr_byte0 >> 4;
 	if (ip_ver == 4) { // IPv4
 		u8 v4_prot;
-		probe_read(&v4_prot, 1, _(&ip->protocol));
+		bpf_core_read(&v4_prot, 1, &ip->protocol);
 
 		event->proto = v4_prot;
 
-		probe_read(&event->saddr, sizeof(event->saddr), _(&ip->saddr));
-		probe_read(&event->daddr, sizeof(event->daddr), _(&ip->daddr));
+		bpf_core_read(&event->saddr, sizeof(event->saddr), &ip->saddr);
+		bpf_core_read(&event->daddr, sizeof(event->daddr), &ip->daddr);
 		typeof(skb->transport_header) l4_off;
-		probe_read(&l4_off, sizeof(l4_off), _(&skb->transport_header));
+		bpf_core_read(&l4_off, sizeof(l4_off), &skb->transport_header);
 		if (v4_prot == IPPROTO_TCP) { // TCP
 			struct tcphdr *tcp =
 				(struct tcphdr *)(skb_head + l4_off);
-			probe_read(&event->sport, sizeof(event->sport),
-				   _(&tcp->source));
-			probe_read(&event->dport, sizeof(event->dport),
-				   _(&tcp->dest));
+			bpf_core_read(&event->sport, sizeof(event->sport),
+				      &tcp->source);
+			bpf_core_read(&event->dport, sizeof(event->dport),
+				      &tcp->dest);
 		} else if (v4_prot == IPPROTO_UDP) { // UDP
 			struct udphdr *udp =
 				(struct udphdr *)(skb_head + l4_off);
-			probe_read(&event->sport, sizeof(event->sport),
-				   _(&udp->source));
-			probe_read(&event->dport, sizeof(event->dport),
-				   _(&udp->dest));
+			bpf_core_read(&event->sport, sizeof(event->sport),
+				      &udp->source);
+			bpf_core_read(&event->dport, sizeof(event->dport),
+				      &udp->dest);
 		}
 
 		if (bpf_core_field_exists(skb->active_extensions)) {
@@ -69,18 +69,18 @@ set_event_from_skb(struct skb_type *event, struct sk_buff *skb)
 			u64 offset;
 
 #define SKB_EXT_SEC_PATH 1 // TBD do this with BTF
-			probe_read(&ext, sizeof(ext), _(&skb->extensions));
+			bpf_core_read(&ext, sizeof(ext), &skb->extensions);
 			if (ext) {
-				probe_read(&offset, sizeof(offset),
-					   _(&ext->offset[SKB_EXT_SEC_PATH]));
+				bpf_core_read(&offset, sizeof(offset),
+					      &ext->offset[SKB_EXT_SEC_PATH]);
 				sp = (void *)ext + (offset << 3);
 
-				probe_read(&event->secpath_len,
-					   sizeof(event->secpath_len),
-					   _(&sp->len));
-				probe_read(&event->secpath_olen,
-					   sizeof(event->secpath_olen),
-					   _(&sp->olen));
+				bpf_core_read(&event->secpath_len,
+					      sizeof(event->secpath_len),
+					      &sp->len);
+				bpf_core_read(&event->secpath_olen,
+					      sizeof(event->secpath_olen),
+					      &sp->olen);
 			}
 		}
 		return 0;

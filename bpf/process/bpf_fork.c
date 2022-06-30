@@ -21,11 +21,11 @@ event_wake_up_new_task(struct pt_regs *ctx)
 	struct task_struct *task;
 	u32 pid = 0;
 
-	probe_read(&task, sizeof(task), &ctx->di);
+	bpf_core_read(&task, sizeof(task), &ctx->di);
 	if (!task)
 		return 0;
 
-	probe_read(&pid, sizeof(pid), _(&task->tgid));
+	bpf_core_read(&pid, sizeof(pid), &task->tgid);
 	curr = execve_map_get(pid);
 	if (!curr)
 		return 0;

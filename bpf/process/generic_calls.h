@@ -104,11 +104,11 @@ generic_process_event_and_setup(struct pt_regs *ctx,
 		_ctx = (struct pt_regs *)ctx->di;
 		if (!_ctx)
 			return 0;
-		probe_read(&e->a0, sizeof(e->a0), &_ctx->di);
-		probe_read(&e->a1, sizeof(e->a1), &_ctx->si);
-		probe_read(&e->a2, sizeof(e->a2), &_ctx->dx);
-		probe_read(&e->a3, sizeof(e->a3), &_ctx->r10);
-		probe_read(&e->a4, sizeof(e->a4), &_ctx->r8);
+		bpf_core_read(&e->a0, sizeof(e->a0), &_ctx->di);
+		bpf_core_read(&e->a1, sizeof(e->a1), &_ctx->si);
+		bpf_core_read(&e->a2, sizeof(e->a2), &_ctx->dx);
+		bpf_core_read(&e->a3, sizeof(e->a3), &_ctx->r10);
+		bpf_core_read(&e->a4, sizeof(e->a4), &_ctx->r8);
 	} else {
 		e->a0 = ctx->di;
 		e->a1 = ctx->si;

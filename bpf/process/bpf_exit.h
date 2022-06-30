@@ -67,8 +67,8 @@ event_exit_send(struct sched_execve_args *ctx, __u64 current)
 		exit->current.pad[3] = 0;
 		exit->current.ktime = enter->key.ktime;
 
-		probe_read(&exit->info.code, sizeof(exit->info.code),
-			   _(&task->exit_code));
+		bpf_core_read(&exit->info.code, sizeof(exit->info.code),
+			      &task->exit_code);
 
 		perf_event_output(ctx, &tcpmon_map, BPF_F_CURRENT_CPU, exit,
 				  size);
